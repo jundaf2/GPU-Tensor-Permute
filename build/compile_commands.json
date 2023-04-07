@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/poweruser/junda.feng/GPU-Tensor-Permute/build",
+  "command": "/home/poweruser/junda.feng/anaconda3/bin/nvcc -forward-unknown-to-host-compiler  --options-file CMakeFiles/seqdata_permute.dir/includes_CUDA.rsp -std=c++14 -Xcompiler=-fPIE -Wno-unknown-pragmas -x cu -c /home/poweruser/junda.feng/GPU-Tensor-Permute/main.cu -o CMakeFiles/seqdata_permute.dir/main.cu.o",
+  "file": "/home/poweruser/junda.feng/GPU-Tensor-Permute/main.cu",
+  "output": "CMakeFiles/seqdata_permute.dir/main.cu.o"
+}
+]
