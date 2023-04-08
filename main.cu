@@ -152,9 +152,37 @@ int eval_seqdata(const std::array<int,4>& dim_a, const std::array<int,4>& permut
 
 TEST_CASE("SeqData", "[SeqData]") {
   SECTION("1") {
-    eval_seqdata<float>({160,32,64,128},{2,1,0,3});
+    eval_seqdata<float>({16,32,64,512},{2,1,0,3});
   }
   SECTION("2") {
-    eval_seqdata<__half>({160,32,64,128},{2,1,0,3});
+    eval_seqdata<__half>({16,32,64,512},{2,1,0,3});
+  }
+
+  SECTION("3") {
+    eval_seqdata<float>({16,32,64,512},{2,0,1,3});
+  }
+  SECTION("4") {
+    eval_seqdata<__half>({16,32,64,512},{2,0,1,3});
+  }
+  
+  SECTION("5") {
+    eval_seqdata<float>({16,32,64,512},{0,2,1,3});
+  }
+  SECTION("6") {
+    eval_seqdata<__half>({16,32,64,512},{0,2,1,3});
+  }
+
+  SECTION("7") {
+    eval_seqdata<float>({16,32,64,512},{1,2,0,3});
+  }
+  SECTION("8") {
+    eval_seqdata<__half>({16,32,64,512},{1,2,0,3});
+  }
+
+  SECTION("9") {
+    eval_seqdata<float>({16,32,64,512},{1,0,2,3});
+  }
+  SECTION("10") {
+    eval_seqdata<__half>({16,32,64,512},{1,0,2,3});
   }
 }
