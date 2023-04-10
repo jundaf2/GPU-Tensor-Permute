@@ -9,9 +9,10 @@ template <typename T>
 class test_SeqData{
 
 public:
-  test_SeqData(std::array<int,4> dimA, std::array<int,4> permuteA){
+  test_SeqData(std::array<int,4> dimA, std::array<int,4> permuteA, unsigned mode){
     this->dimA = dimA;
     this->permuteA = permuteA;
+    this->mode = mode;
 
     data_len = dimA[0]*dimA[1]*dimA[2]*dimA[3];
     input = std::vector<float>(data_len);
@@ -51,7 +52,7 @@ public:
 
     cudaStream_t stream;
     CHECK_CUDA_ERR(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-    LaunchTransformSeqDataAxesKernel<T>(stream, dimA.data(), permuteA.data(), d_input, d_output);
+    LaunchTransformSeqDataAxesKernel<T>(stream, mode, dimA.data(), permuteA.data(), d_input, d_output);
     CHECK_CUDA_ERR(cudaStreamSynchronize(stream));
 
 
@@ -70,21 +71,43 @@ public:
       if (n == 3) return 1;
       return dimA[n+1] * dim_factorial(n + 1);
     };
-
-    std::function<int(int)> perm_dim_factorial = [this,&perm_dim_factorial](int n) -> int {
-      assert(n<=3);
-      if (n == 3) return 1;
-      int np = std::find(permuteA.begin(), permuteA.end(), n+1) - permuteA.begin();
-      return dimA[np] * perm_dim_factorial(permuteA[np]);
-    };
     
     int stride_0 = dim_factorial(0);
     int stride_1 = dim_factorial(1);
     int stride_2 = dim_factorial(2);
 
-    int perm_stride_0 = perm_dim_factorial(permuteA[0]);
-    int perm_stride_1 = perm_dim_factorial(permuteA[1]);
-    int perm_stride_2 = perm_dim_factorial(permuteA[2]);
+    int perm_stride_0, perm_stride_1, perm_stride_2;
+    if(mode == 0){
+      std::function<int(int)> perm_dim_factorial = [this,&perm_dim_factorial](int n) -> int {
+        assert(n<=3);
+        if (n == 3) return 1;
+        int np = std::find(permuteA.begin(), permuteA.end(), n+1) - permuteA.begin();
+        return dimA[np] * perm_dim_factorial(permuteA[np]);
+      };
+      
+      perm_stride_0 = perm_dim_factorial(permuteA[0]);
+      perm_stride_1 = perm_dim_factorial(permuteA[1]);
+      perm_stride_2 = perm_dim_factorial(permuteA[2]);
+    }
+    else if(mode == 1){
+      std::function<int(int)> perm_dim_factorial = [this,&perm_dim_factorial](int n) -> int {
+        assert(n<=3);
+        if (n == 3) return 1;
+        int np = std::find(permuteA.begin(), permuteA.end(), n) - permuteA.begin();
+        return dimA[permuteA[np+1]] * perm_dim_factorial(permuteA[np+1]);
+      };
+      
+      perm_stride_0 = perm_dim_factorial(0);
+      perm_stride_1 = perm_dim_factorial(1);
+      perm_stride_2 = perm_dim_factorial(2);
+
+      std::cout << "perm_stride_0: " << perm_stride_0 << std::endl;
+      std::cout << "perm_stride_1: " << perm_stride_1 << std::endl;
+      std::cout << "perm_stride_2: " << perm_stride_2 << std::endl;
+    }
+    else{
+      assert(false);
+    }
 
     // cpu implementation
     for (int n = 0; n < dimA[0]; n++) {
@@ -131,6 +154,7 @@ private:
   size_t data_len;
   std::vector<float> input, output;
   void *h_input, *h_output;
+  unsigned mode;
 
   std::function<bool(float,float,float)> NEAR2 = [](float a, float b, float prec) -> bool { return ((a != a && b != b) 
       || (a == std::numeric_limits<typename std::remove_reference<decltype(a)>::type>::infinity() 
@@ -142,8 +166,8 @@ private:
 };
 
 template <typename T>
-int eval_seqdata(const std::array<int,4>& dim_a, const std::array<int,4>& permute_a){
-  test_SeqData<T> test_seqdata(dim_a, permute_a);
+int eval_seqdata(const std::array<int,4>& dim_a, const std::array<int,4>& permute_a, const unsigned mode){
+  test_SeqData<T> test_seqdata(dim_a, permute_a, mode);
   test_seqdata.init_data();
   test_seqdata.run_gpu_permute();
   test_seqdata.run_cpu_permute();
@@ -152,37 +176,73 @@ int eval_seqdata(const std::array<int,4>& dim_a, const std::array<int,4>& permut
 
 TEST_CASE("SeqData", "[SeqData]") {
   SECTION("1") {
-    eval_seqdata<float>({16,32,64,512},{2,1,0,3});
+    eval_seqdata<float>({16,32,64,512},{2,1,0,3},0);
   }
   SECTION("2") {
-    eval_seqdata<__half>({16,32,64,512},{2,1,0,3});
+    eval_seqdata<__half>({16,32,64,512},{2,1,0,3},0);
   }
 
   SECTION("3") {
-    eval_seqdata<float>({16,32,64,512},{2,0,1,3});
+    eval_seqdata<float>({16,32,64,512},{2,0,1,3},0);
   }
   SECTION("4") {
-    eval_seqdata<__half>({16,32,64,512},{2,0,1,3});
+    eval_seqdata<__half>({16,32,64,512},{2,0,1,3},0);
   }
   
   SECTION("5") {
-    eval_seqdata<float>({16,32,64,512},{0,2,1,3});
+    eval_seqdata<float>({16,32,64,512},{0,2,1,3},0);
   }
   SECTION("6") {
-    eval_seqdata<__half>({16,32,64,512},{0,2,1,3});
+    eval_seqdata<__half>({16,32,64,512},{0,2,1,3},0);
   }
 
   SECTION("7") {
-    eval_seqdata<float>({16,32,64,512},{1,2,0,3});
+    eval_seqdata<float>({16,32,64,512},{1,2,0,3},0);
   }
   SECTION("8") {
-    eval_seqdata<__half>({16,32,64,512},{1,2,0,3});
+    eval_seqdata<__half>({16,32,64,512},{1,2,0,3},0);
   }
 
   SECTION("9") {
-    eval_seqdata<float>({16,32,64,512},{1,0,2,3});
+    eval_seqdata<float>({16,32,64,512},{1,0,2,3},0);
   }
   SECTION("10") {
-    eval_seqdata<__half>({16,32,64,512},{1,0,2,3});
+    eval_seqdata<__half>({16,32,64,512},{1,0,2,3},0);
+  }
+
+
+  SECTION("11") {
+    eval_seqdata<float>({16,32,64,512},{2,1,0,3},1);
+  }
+  SECTION("12") {
+    eval_seqdata<__half>({16,32,64,512},{2,1,0,3},1);
+  }
+
+  SECTION("13") {
+    eval_seqdata<float>({16,32,64,512},{2,0,1,3},1);
+  }
+  SECTION("14") {
+    eval_seqdata<__half>({16,32,64,512},{2,0,1,3},1);
+  }
+  
+  SECTION("15") {
+    eval_seqdata<float>({16,32,64,512},{0,2,1,3},1);
+  }
+  SECTION("16") {
+    eval_seqdata<__half>({16,32,64,512},{0,2,1,3},1);
+  }
+
+  SECTION("17") {
+    eval_seqdata<float>({16,32,64,512},{1,2,0,3},1);
+  }
+  SECTION("18") {
+    eval_seqdata<__half>({16,32,64,512},{1,2,0,3},1);
+  }
+
+  SECTION("19") {
+    eval_seqdata<float>({16,32,64,512},{1,0,2,3},1);
+  }
+  SECTION("20") {
+    eval_seqdata<__half>({16,32,64,512},{1,0,2,3},1);
   }
 }

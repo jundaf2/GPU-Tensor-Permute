@@ -98,23 +98,45 @@ void print_launch_info(float msecTotal, int elem_num, int repeat_number, std::st
 }
 
 template <typename T>
-void LaunchTransformSeqDataAxesKernel(cudaStream_t stream, const int dim[4], const int permute[4], const T* src, T* dst){
+void LaunchTransformSeqDataAxesKernel(cudaStream_t stream, unsigned mode, const int dim[4], const int permute[4], const T* src, T* dst){
   
   unsigned dim012 = dim[0] * dim[1] * dim[2];
 
   int perm_dim[4] = {};
-  for(int i=0; i<4; i++)
-    perm_dim[permute[i]] = dim[i];
-  
   int perm_stride_0, perm_stride_1, perm_stride_2;
-  flat_perm_dim(&perm_stride_0, perm_dim, permute[0]);
-  flat_perm_dim(&perm_stride_1, perm_dim, permute[1]);
-  flat_perm_dim(&perm_stride_2, perm_dim, permute[2]);
+
+  if(mode==0){
+    for(int i=0; i<4; i++)
+      perm_dim[permute[i]] = dim[i];
+    flat_perm_dim(&perm_stride_0, perm_dim, permute[0]);
+    flat_perm_dim(&perm_stride_1, perm_dim, permute[1]);
+    flat_perm_dim(&perm_stride_2, perm_dim, permute[2]);  
+  }
+  else if(mode==1){
+    for(int i=0; i<4; i++)
+      perm_dim[i] = dim[permute[i]];
+    // find the index of 0, 1, 2 in permute array
+    int permute_0, permute_1, permute_2;
+    for(int i=0; i<4; i++){
+      if(permute[i]==0)
+        permute_0 = i;
+      else if(permute[i]==1)
+        permute_1 = i;
+      else if(permute[i]==2)
+        permute_2 = i;
+    }
+
+    flat_perm_dim(&perm_stride_0, perm_dim, permute_0);
+    flat_perm_dim(&perm_stride_1, perm_dim, permute_1);
+    flat_perm_dim(&perm_stride_2, perm_dim, permute_2);
+
+  }
 
   const int stride_1 = (dim[1]*dim[2]);
   const int stride_2 = (dim[2]);
   const int vec_size = (dim[3]);
 
+  std::cout << "stride_1: " << stride_1 << " stride_2: " << stride_2 << " vec_size: " << vec_size << " perm_stride_0: " << perm_stride_0*vec_size << " perm_stride_1: " << perm_stride_1*vec_size << " perm_stride_2: " << perm_stride_2*vec_size << std::endl;
 
   // Allocate CUDA events that we'll use for timing
   float msecTotal = 0.0f;
