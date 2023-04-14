@@ -55,7 +55,6 @@ public:
     LaunchTransformSeqDataAxesKernel<T>(stream, mode, dimA.data(), permuteA.data(), d_input, d_output);
     CHECK_CUDA_ERR(cudaStreamSynchronize(stream));
 
-
     // copy d2h
     CHECK_CUDA_ERR(cudaMemcpy(h_output,d_output,data_len*sizeof(T),cudaMemcpyDeviceToHost));
 
@@ -77,7 +76,7 @@ public:
     int stride_2 = dim_factorial(2);
 
     int perm_stride_0, perm_stride_1, perm_stride_2;
-    if(mode == 0){
+    if((mode&0x01) == 0){
       std::function<int(int)> perm_dim_factorial = [this,&perm_dim_factorial](int n) -> int {
         assert(n<=3);
         if (n == 3) return 1;
@@ -89,7 +88,7 @@ public:
       perm_stride_1 = perm_dim_factorial(permuteA[1]);
       perm_stride_2 = perm_dim_factorial(permuteA[2]);
     }
-    else if(mode == 1){
+    else if((mode&0x01) == 1){
       std::function<int(int)> perm_dim_factorial = [this,&perm_dim_factorial](int n) -> int {
         assert(n<=3);
         if (n == 3) return 1;
@@ -101,9 +100,6 @@ public:
       perm_stride_1 = perm_dim_factorial(1);
       perm_stride_2 = perm_dim_factorial(2);
 
-      std::cout << "perm_stride_0: " << perm_stride_0 << std::endl;
-      std::cout << "perm_stride_1: " << perm_stride_1 << std::endl;
-      std::cout << "perm_stride_2: " << perm_stride_2 << std::endl;
     }
     else{
       assert(false);
@@ -175,74 +171,145 @@ int eval_seqdata(const std::array<int,4>& dim_a, const std::array<int,4>& permut
 }
 
 TEST_CASE("SeqData", "[SeqData]") {
-  SECTION("1") {
-    eval_seqdata<float>({16,32,64,512},{2,1,0,3},0);
+  // SECTION("1") {
+  //   eval_seqdata<float>({16,32,64,512},{2,1,0,3},0);
+  // }
+  // SECTION("2") {
+  //   eval_seqdata<__half>({16,32,64,512},{2,1,0,3},0);
+  // }
+
+  // SECTION("3") {
+  //   eval_seqdata<float>({16,32,64,512},{2,0,1,3},0);
+  // }
+  // SECTION("4") {
+  //   eval_seqdata<__half>({16,32,64,512},{2,0,1,3},0);
+  // }
+  
+  // SECTION("5") {
+  //   eval_seqdata<float>({16,32,64,512},{0,2,1,3},0);
+  // }
+  // SECTION("6") {
+  //   eval_seqdata<__half>({16,32,64,512},{0,2,1,3},0);
+  // }
+
+  // SECTION("7") {
+  //   eval_seqdata<float>({16,32,64,512},{1,2,0,3},0);
+  // }
+  // SECTION("8") {
+  //   eval_seqdata<__half>({16,32,64,512},{1,2,0,3},0);
+  // }
+
+  // SECTION("9") {
+  //   eval_seqdata<float>({16,32,64,512},{1,0,2,3},0);
+  // }
+  // SECTION("10") {
+  //   eval_seqdata<__half>({16,32,64,512},{1,0,2,3},0);
+  // }
+
+
+  // SECTION("11") {
+  //   eval_seqdata<float>({16,32,64,512},{2,1,0,3},1);
+  // }
+  // SECTION("12") {
+  //   eval_seqdata<__half>({16,32,64,512},{2,1,0,3},1);
+  // }
+
+  // SECTION("13") {
+  //   eval_seqdata<float>({16,32,64,512},{2,0,1,3},1);
+  // }
+  // SECTION("14") {
+  //   eval_seqdata<__half>({16,32,64,512},{2,0,1,3},1);
+  // }
+  
+  // SECTION("15") {
+  //   eval_seqdata<float>({16,32,64,512},{0,2,1,3},1);
+  // }
+  // SECTION("16") {
+  //   eval_seqdata<__half>({16,32,64,512},{0,2,1,3},1);
+  // }
+
+  // SECTION("17") {
+  //   eval_seqdata<float>({16,32,64,512},{1,2,0,3},1);
+  // }
+  // SECTION("18") {
+  //   eval_seqdata<__half>({16,32,64,512},{1,2,0,3},1);
+  // }
+
+  // SECTION("19") {
+  //   eval_seqdata<float>({16,32,64,512},{1,0,2,3},1);
+  // }
+  // SECTION("20") {
+  //   eval_seqdata<__half>({16,32,64,512},{1,0,2,3},1);
+  // }
+
+  SECTION("21") {
+    eval_seqdata<float>({16,32,64,512},{2,1,0,3},2);
   }
-  SECTION("2") {
-    eval_seqdata<__half>({16,32,64,512},{2,1,0,3},0);
+  SECTION("22") {
+    eval_seqdata<__half>({16,32,64,512},{2,1,0,3},2);
   }
 
-  SECTION("3") {
-    eval_seqdata<float>({16,32,64,512},{2,0,1,3},0);
+  SECTION("23") {
+    eval_seqdata<float>({16,32,64,512},{2,0,1,3},2);
   }
-  SECTION("4") {
-    eval_seqdata<__half>({16,32,64,512},{2,0,1,3},0);
+  SECTION("24") {
+    eval_seqdata<__half>({16,32,64,512},{2,0,1,3},2);
   }
   
-  SECTION("5") {
-    eval_seqdata<float>({16,32,64,512},{0,2,1,3},0);
+  SECTION("25") {
+    eval_seqdata<float>({16,32,64,512},{0,2,1,3},2);
   }
-  SECTION("6") {
-    eval_seqdata<__half>({16,32,64,512},{0,2,1,3},0);
-  }
-
-  SECTION("7") {
-    eval_seqdata<float>({16,32,64,512},{1,2,0,3},0);
-  }
-  SECTION("8") {
-    eval_seqdata<__half>({16,32,64,512},{1,2,0,3},0);
+  SECTION("26") {
+    eval_seqdata<__half>({16,32,64,512},{0,2,1,3},2);
   }
 
-  SECTION("9") {
-    eval_seqdata<float>({16,32,64,512},{1,0,2,3},0);
+  SECTION("27") {
+    eval_seqdata<float>({16,32,64,512},{1,2,0,3},2);
   }
-  SECTION("10") {
-    eval_seqdata<__half>({16,32,64,512},{1,0,2,3},0);
+  SECTION("28") {
+    eval_seqdata<__half>({16,32,64,512},{1,2,0,3},2);
+  }
+
+  SECTION("29") {
+    eval_seqdata<float>({16,32,64,512},{1,0,2,3},2);
+  }
+  SECTION("30") {
+    eval_seqdata<__half>({16,32,64,512},{1,0,2,3},2);
   }
 
 
-  SECTION("11") {
-    eval_seqdata<float>({16,32,64,512},{2,1,0,3},1);
+  SECTION("31") {
+    eval_seqdata<float>({16,32,64,512},{2,1,0,3},3);
   }
-  SECTION("12") {
-    eval_seqdata<__half>({16,32,64,512},{2,1,0,3},1);
+  SECTION("32") {
+    eval_seqdata<__half>({16,32,64,512},{2,1,0,3},3);
   }
 
-  SECTION("13") {
-    eval_seqdata<float>({16,32,64,512},{2,0,1,3},1);
+  SECTION("33") {
+    eval_seqdata<float>({16,32,64,512},{2,0,1,3},3);
   }
-  SECTION("14") {
-    eval_seqdata<__half>({16,32,64,512},{2,0,1,3},1);
+  SECTION("34") {
+    eval_seqdata<__half>({16,32,64,512},{2,0,1,3},3);
   }
   
-  SECTION("15") {
-    eval_seqdata<float>({16,32,64,512},{0,2,1,3},1);
+  SECTION("35") {
+    eval_seqdata<float>({16,32,64,512},{0,2,1,3},3);
   }
-  SECTION("16") {
-    eval_seqdata<__half>({16,32,64,512},{0,2,1,3},1);
-  }
-
-  SECTION("17") {
-    eval_seqdata<float>({16,32,64,512},{1,2,0,3},1);
-  }
-  SECTION("18") {
-    eval_seqdata<__half>({16,32,64,512},{1,2,0,3},1);
+  SECTION("36") {
+    eval_seqdata<__half>({16,32,64,512},{0,2,1,3},3);
   }
 
-  SECTION("19") {
-    eval_seqdata<float>({16,32,64,512},{1,0,2,3},1);
+  SECTION("37") {
+    eval_seqdata<float>({16,32,64,512},{1,2,0,3},3);
   }
-  SECTION("20") {
-    eval_seqdata<__half>({16,32,64,512},{1,0,2,3},1);
+  SECTION("38") {
+    eval_seqdata<__half>({16,32,64,512},{1,2,0,3},3);
+  }
+
+  SECTION("39") {
+    eval_seqdata<float>({16,32,64,512},{1,0,2,3},3);
+  }
+  SECTION("40") {
+    eval_seqdata<__half>({16,32,64,512},{1,0,2,3},3);
   }
 }

@@ -33,6 +33,12 @@ template <typename T>
 __global__ void TransformSeqDataAxesKernel(const int stride_1, const int stride_2, const int vec_size, const int perm_stride_0, const int perm_stride_1, const int perm_stride_2, const T* src, T* dst){
 
 }
+__forceinline__ __device__ unsigned lane_id()
+{
+    unsigned ret; 
+    asm volatile ("mov.u32 %0, %laneid;" : "=r"(ret));
+    return ret;
+}
 
 __device__ __host__ __inline__ void flat_perm_dim(int* stride, const int perm_dim[4], int perm){
   *stride = 1;
@@ -42,7 +48,9 @@ __device__ __host__ __inline__ void flat_perm_dim(int* stride, const int perm_di
 
 template <>
 __global__ void TransformSeqDataAxesKernel<float>(const int stride_1, const int stride_2, const int vec_size, const int perm_stride_0, const int perm_stride_1, const int perm_stride_2, const float* src, float* dst){
-  int vec_id = blockIdx.x*(blockDim.x/32) + threadIdx.x / 32;
+  int warp_id = threadIdx.x / 32;
+
+  int vec_id = blockIdx.x*(blockDim.x/32) + warp_id;
   int vec_size4 = (vec_size >> 2);
 
   int src_offset = vec_size4 * vec_id;
@@ -57,7 +65,7 @@ __global__ void TransformSeqDataAxesKernel<float>(const int stride_1, const int 
   const float4 *input4 = reinterpret_cast<const float4 *>(src);
   float4 *output4 = reinterpret_cast<float4 *>(dst);
   float4 vinput4;
-  for (int i = threadIdx.x % 32; i < vec_size4; i += 32) {
+  for (unsigned i = lane_id(); i < vec_size4; i += 32) {
     vinput4 = input4[src_offset + i];
     output4[trg_offset + i] = vinput4;
   }
@@ -65,7 +73,9 @@ __global__ void TransformSeqDataAxesKernel<float>(const int stride_1, const int 
 
 template <>
 __global__ void TransformSeqDataAxesKernel<__half>(const int stride_1, const int stride_2, const int vec_size, const int perm_stride_0, const int perm_stride_1, const int perm_stride_2, const __half* src, __half* dst){
-  int vec_id = blockIdx.x*(blockDim.x/32) + threadIdx.x / 32;
+  int warp_id = threadIdx.x / 32;
+
+  int vec_id = blockIdx.x*(blockDim.x/32) + warp_id;
   int vec_size4 = (vec_size >> 3);
 
   int src_offset = vec_size4 * vec_id;
@@ -79,8 +89,69 @@ __global__ void TransformSeqDataAxesKernel<__half>(const int stride_1, const int
   const float4 *input4 = reinterpret_cast<const float4 *>(src);
   float4 *output4 = reinterpret_cast<float4 *>(dst);
   float4 vinput4;
-  for (int i = threadIdx.x % 32; i < vec_size4; i += 32) {
+  for (unsigned i = lane_id(); i < vec_size4; i += 32) {
     vinput4 = input4[src_offset + i];
+    output4[trg_offset + i] = vinput4;
+  }
+}
+
+
+template <typename T>
+__global__ void InplaceTransformSeqDataAxesKernel(const int stride_1, const int stride_2, const int vec_size, const int perm_stride_0, const int perm_stride_1, const int perm_stride_2, T* dst){
+
+}
+
+
+template <>
+__global__ void InplaceTransformSeqDataAxesKernel<float>(const int stride_1, const int stride_2, const int vec_size, const int perm_stride_0, const int perm_stride_1, const int perm_stride_2, float* dst){
+  int warp_id = threadIdx.x / 32;
+
+  int vec_id = blockIdx.x*(blockDim.x/32) + warp_id;
+  int vec_size4 = (vec_size >> 2);
+
+  int src_offset = vec_size4 * vec_id;
+
+  int idx_dim0 = vec_id / stride_1;
+  int idx_dim1 = vec_id % stride_1 / stride_2;
+  int idx_dim2 = vec_id % stride_1 % stride_2;
+  int trg_offset = vec_size4 * (idx_dim0 * perm_stride_0 + idx_dim1 * perm_stride_1 + idx_dim2 * perm_stride_2) ;
+  
+
+  float4 *input4 = reinterpret_cast<float4 *>(dst);
+  float4 *output4 = reinterpret_cast<float4 *>(dst);
+  float4 vinput4, voutput4;
+  for (unsigned i = lane_id(); i < vec_size4; i += 32) {
+    vinput4 = input4[src_offset + i];
+    voutput4 = input4[trg_offset + i];
+
+    input4[src_offset + i] = voutput4;
+    output4[trg_offset + i] = vinput4;
+  }
+}
+
+template <>
+__global__ void InplaceTransformSeqDataAxesKernel<__half>(const int stride_1, const int stride_2, const int vec_size, const int perm_stride_0, const int perm_stride_1, const int perm_stride_2, __half* dst){
+  int warp_id = threadIdx.x / 32;
+
+  int vec_id = blockIdx.x*(blockDim.x/32) + warp_id;
+  int vec_size4 = (vec_size >> 3);
+
+  int src_offset = vec_size4 * vec_id;
+
+  int idx_dim0 = vec_id / stride_1;
+  int idx_dim1 = vec_id % stride_1 / stride_2;
+  int idx_dim2 = vec_id % stride_1 % stride_2;
+
+  int trg_offset = vec_size4 * (idx_dim0 * perm_stride_0 + idx_dim1 * perm_stride_1 + idx_dim2 * perm_stride_2) ;
+
+  float4 *input4 = reinterpret_cast<float4 *>(dst);
+  float4 *output4 = reinterpret_cast<float4 *>(dst);
+  float4 vinput4, voutput4;
+  for (unsigned i = lane_id(); i < vec_size4; i += 32) {
+    vinput4 = input4[src_offset + i];
+    voutput4 = input4[trg_offset + i];
+
+    input4[src_offset + i] = voutput4;
     output4[trg_offset + i] = vinput4;
   }
 }
@@ -105,14 +176,14 @@ void LaunchTransformSeqDataAxesKernel(cudaStream_t stream, unsigned mode, const 
   int perm_dim[4] = {};
   int perm_stride_0, perm_stride_1, perm_stride_2;
 
-  if(mode==0){
+  if((mode&0x01)==0){
     for(int i=0; i<4; i++)
       perm_dim[permute[i]] = dim[i];
     flat_perm_dim(&perm_stride_0, perm_dim, permute[0]);
     flat_perm_dim(&perm_stride_1, perm_dim, permute[1]);
     flat_perm_dim(&perm_stride_2, perm_dim, permute[2]);  
   }
-  else if(mode==1){
+  else if((mode&0x01)==1){
     for(int i=0; i<4; i++)
       perm_dim[i] = dim[permute[i]];
     // find the index of 0, 1, 2 in permute array
@@ -168,7 +239,13 @@ void LaunchTransformSeqDataAxesKernel(cudaStream_t stream, unsigned mode, const 
     dim3 threads(warps_per_block*32);
     // Record the start event
     CHECK_CUDA_ERR(cudaEventRecord(start, stream));
-    TransformSeqDataAxesKernel<T><<<blocks, threads,0,stream>>>(stride_1, stride_2, vec_size, perm_stride_0, perm_stride_1, perm_stride_2, src, dst);
+
+    if(((mode>>1)&0x01)==0){
+      TransformSeqDataAxesKernel<T><<<blocks, threads,0,stream>>>(stride_1, stride_2, vec_size, perm_stride_0, perm_stride_1, perm_stride_2, src, dst);
+    }
+    else if(((mode>>1)&0x01)==1){
+      InplaceTransformSeqDataAxesKernel<T><<<blocks, threads,0,stream>>>(stride_1, stride_2, vec_size, perm_stride_0, perm_stride_1, perm_stride_2, dst);
+    }
     CHECK_CUDA_ERR(cudaStreamSynchronize(stream));
     // Record the stop event
     CHECK_CUDA_ERR(cudaEventRecord(stop, stream));
